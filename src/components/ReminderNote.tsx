@@ -4,34 +4,34 @@ import { useCurrentUserStore } from "@/modules/auth/current-user.state";
 import { noteRepository } from "@/modules/notes/note.repository";
 import { useNoteStore } from "@/modules/notes/note.state";
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
 
 const ReminderNote = () => {
-  const params = useParams();
-  const id = parseInt(params.id!);
   const [isLoading, setIsLoading] = useState(false);
+  const [reminderId, setReminderId] = useState<number | null>(null);
   const { currentUser } = useCurrentUserStore();
   const noteStore = useNoteStore();
-  const note = noteStore.getByTitle("リマインダー");
+  const note = reminderId != null ? noteStore.getOne(reminderId) : undefined;
 
   useEffect(() => {
+    if (currentUser == null) return;
     fetchReminder();
-  }, [id]);
+  }, [currentUser?.id]);
 
   const fetchReminder = async () => {
     setIsLoading(true);
-    const note = await noteRepository.findReminder(currentUser!.id);
-    if (note == null) return;
-    noteStore.set([note]);
+    const reminder = await noteRepository.findReminder(currentUser!.id);
+    if (reminder != null) {
+      setReminderId(reminder.id);
+      noteStore.set([reminder]);
+    }
     setIsLoading(false);
   };
 
-  const updateNote = async (
-    id: number,
-    note: { title?: string; content?: string }
-  ) => {
-    const updatedNote = await noteRepository.update(id, note);
+  const updateNote = async (note: { title?: string; content?: string }) => {
+    if (reminderId == null) return;
+    const updatedNote = await noteRepository.update(reminderId, note);
     if (updatedNote == null) return;
+    setReminderId(updatedNote.id);
     noteStore.set([updatedNote]);
     return updatedNote;
   };
@@ -45,11 +45,11 @@ const ReminderNote = () => {
       <div className="md:max-w-3xl lg:md-max-w-4xl mx-auto">
         <TitleInput
           initialData={note}
-          onTitleChange={(title) => updateNote(id, { title })}
+          onTitleChange={(title) => updateNote({ title })}
         />
         <Editor
           initialContent={note.content}
-          onChange={(content) => updateNote(id, { content })}
+          onChange={(content) => updateNote({ content })}
         />
       </div>
     </div>
